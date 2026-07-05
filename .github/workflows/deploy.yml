@@ -1,0 +1,34 @@
+name: Deploy to VM
+
+# One-time setup before this works:
+#   1. On the VM: git clone <this-repo-url> ~/cloud-explorer
+#   2. In GitHub repo Settings -> Secrets and variables -> Actions, add:
+#        SSH_HOST         VM's public IP or hostname
+#        SSH_USER         SSH username (e.g. root, ubuntu)
+#        SSH_KEY          private key that can SSH into the VM
+#        SITE_ADDRESS     e.g. 47-253-1-100.sslip.io (see README)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and redeploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            cd ~/cloud-explorer
+            git pull
+            docker build -t cloud-explorer .
+            docker stop cloud-explorer || true
+            docker rm cloud-explorer || true
+            docker run -d -p 80:80 -p 443:443 \
+              -e SITE_ADDRESS=${{ secrets.SITE_ADDRESS }} \
+              --name cloud-explorer cloud-explorer

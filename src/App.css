@@ -1,0 +1,624 @@
+:root {
+  --card-radius: 28px;
+}
+
+/* Self-hosted so the vintage caption on the photo strip renders offline -
+   no runtime network request. */
+@font-face {
+  font-family: "Ephesis";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Ephesis-Regular.woff2") format("woff2");
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: "Inter", sans-serif;
+  color: #f5f5f7;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---------- Animated aurora background ---------- */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-size: 300% 300%;
+  animation: driftGradient 18s ease infinite;
+}
+
+@keyframes driftGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg {
+    animation: none;
+  }
+  .badge,
+  .sheen {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- Sponsor bar ---------- */
+.sponsor-bar {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: clamp(20px, 6vw, 64px);
+  flex-wrap: wrap;
+  padding: 28px 20px 8px;
+}
+
+.sponsor-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.sponsor-slot .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.75);
+  font-weight: 500;
+}
+
+/* Logos ship without transparent backgrounds, so we mount each
+     one on a clean white chip - looks intentional either way. */
+.logo-chip {
+  height: 56px;
+  min-width: 120px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.logo-chip:hover,
+.logo-chip:focus-visible {
+  transform: scale(1.05);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.logo-chip img {
+  max-height: 38px;
+  max-width: 150px;
+  display: block;
+  object-fit: contain;
+}
+
+/* ---------- Page heading ---------- */
+.page-heading {
+  text-align: center;
+  margin: 18px 20px 8px;
+}
+
+.page-heading h1 {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: clamp(22px, 4vw, 32px);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.page-heading p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: rgba(245, 245, 247, 0.7);
+}
+
+/* ---------- Badge card ---------- */
+.badge-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px 56px;
+  width: 100%;
+}
+
+/* ---------- Flip card (front badge <-> camera back) ---------- */
+.flip-card {
+  width: min(380px, 90vw);
+  perspective: 1600px;
+}
+
+.flip-card-inner {
+  position: relative;
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+}
+
+.flip-card-front {
+  cursor: pointer;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+.flip-card:not(.flipped) .flip-card-back {
+  pointer-events: none;
+}
+
+.flip-card.flipped .flip-card-front {
+  pointer-events: none;
+}
+
+.badge {
+  position: relative;
+  width: 100%;
+  border-radius: var(--card-radius);
+  background: rgba(20, 18, 32, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  padding: 30px 26px 26px;
+  transition:
+    transform 0.35s ease,
+    box-shadow 0.35s ease;
+  overflow: hidden;
+}
+
+.flip-card-front:hover .badge,
+.flip-card-front:focus-visible .badge {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.flip-card-front:focus-visible .badge {
+  outline: 2px solid rgba(255, 255, 255, 0.6);
+  outline-offset: 3px;
+}
+
+.camera-hint {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(245, 245, 247, 0.6);
+  margin: 14px 0 0;
+  animation: pulseHint 2.4s ease-in-out infinite;
+}
+
+@keyframes pulseHint {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Holographic sheen sweep - the signature detail */
+.sheen {
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.16) 48%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.16) 52%,
+    transparent 60%
+  );
+  animation: sweep 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-60%) translateY(-30%) rotate(0deg);
+  }
+  100% {
+    transform: translateX(60%) translateY(30%) rotate(0deg);
+  }
+}
+
+/* Lanyard punch hole */
+.punch-hole {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 12px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.badge-eyebrow {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.6);
+  margin: 18px 0 14px;
+}
+
+.avatar {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #14121f;
+  background: linear-gradient(135deg, #ffffff, rgba(255, 255, 255, 0.55));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.badge-name {
+  text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+
+.badge-role {
+  text-align: center;
+  font-size: 12.5px;
+  color: rgba(245, 245, 247, 0.65);
+  margin: 0 0 20px;
+}
+
+.fun-fact {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  margin-bottom: 20px;
+}
+
+.fun-fact .label {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.55);
+  margin-bottom: 4px;
+}
+
+.favorite-section {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.poster-frame {
+  flex-shrink: 0;
+  width: 74px;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.poster-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.favorite-text .label {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245, 245, 247, 0.55);
+  margin: 0 0 4px;
+}
+
+.favorite-text .title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  margin: 0;
+}
+
+.favorite-text .category {
+  font-size: 12px;
+  color: rgba(245, 245, 247, 0.6);
+  margin: 2px 0 0;
+  text-transform: capitalize;
+}
+
+/* Bottom stamp */
+.stamp {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 12px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.alibaba-icon {
+  color: #ff6a00;
+  vertical-align: -2px;
+  font-size: 14px;
+}
+
+.alibaba-link {
+  color: #ff6a00;
+  text-decoration: none;
+  font-weight: 700;
+  transition: opacity 0.2s ease;
+}
+
+.alibaba-link:hover,
+.alibaba-link:focus-visible {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.footnote {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(245, 245, 247, 0.55);
+  padding: 0 20px 28px;
+}
+
+.footnote code {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+/* ---------- Camera back (photo booth) ---------- */
+.camera-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.close-btn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f5f7;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.camera-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 18px 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.shot-dots {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.shot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.shot-dot.filled {
+  background: #ffffff;
+}
+
+.strip-preview {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0;
+}
+
+.strip-img {
+  max-width: 70%;
+  max-height: 340px;
+  width: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  cursor: zoom-in;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.strip-img:hover {
+  transform: scale(2.1);
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+/* Let the zoomed strip spill outside the card instead of being clipped. */
+.camera-card:has(.strip-img:hover) {
+  overflow: visible;
+}
+
+.camera-message {
+  padding: 0 20px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(245, 245, 247, 0.75);
+}
+
+.flash-overlay {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  animation: flashOut 0.25s ease-out forwards;
+  z-index: 2;
+}
+
+@keyframes flashOut {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.camera-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 56px;
+}
+
+.shutter-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 4px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.shutter-btn:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.shutter-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ghost-btn,
+.solid-btn {
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.ghost-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f7;
+}
+
+.ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.solid-btn {
+  background: #ffffff;
+  color: #14121f;
+  border-color: transparent;
+}
+
+.solid-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.camera-footnote {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(245, 245, 247, 0.55);
+  margin: 14px 0 0;
+}
+
+noscript {
+  display: block;
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 15px;
+}
