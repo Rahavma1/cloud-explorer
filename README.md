@@ -10,7 +10,9 @@ Make it yours by editing the `CONFIG` object at the top of `src/App.tsx`
 
 ## 1. Run it locally
 
-You'll need [Node.js](https://nodejs.org/) installed (v20+).
+You'll need [Node.js](https://nodejs.org/) installed (v20+):
+[Windows installer](https://nodejs.org/dist/v24.18.0/node-v24.18.0-x64.msi) |
+[macOS installer](https://nodejs.org/dist/v24.18.0/node-v24.18.0.pkg)
 
 ```bash
 npm install

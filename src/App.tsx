@@ -167,8 +167,72 @@ function slugify(name: string) {
 }
 
 const SHOT_COUNT = 3;
-// A gentle desaturation - mostly monochrome but not a stark black & white.
-const MONO_FILTER = "grayscale(0.82) contrast(1.08) brightness(1.02)";
+// Full desaturation - any leftover color (from partial desaturation) reads
+// as a cast, usually blue/cool from indoor lighting, and makes skin tones
+// look off. A gamma lift brightens shadows/midtones without blowing out
+// highlights, which is how film's toe actually behaves (lifted, not
+// crushed) - a flat contrast stretch was making shadows read as too dark.
+const MONO_GAMMA = 0.85;
+const MONO_CONTRAST = 1.05;
+const MONO_FILTER = `grayscale(1) contrast(${MONO_CONTRAST}) brightness(1.18)`;
+
+// iOS Safari doesn't apply CanvasRenderingContext2D.filter, so drawImage()
+// there silently ignores it and captures come out in color while the live
+// preview (styled with the CSS filter above) looks monochrome. Replicate
+// the same tone pipeline per-pixel so captures match the preview on every
+// browser.
+function applyMonoFilter(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    let gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    gray = 255 * Math.pow(gray / 255, MONO_GAMMA);
+    gray = (gray - 128) * MONO_CONTRAST + 128;
+    gray = Math.min(255, Math.max(0, gray));
+    data[i] = data[i + 1] = data[i + 2] = gray;
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// A light, random pass of dust speckles and thin scratch streaks, like a
+// negative that's picked up a bit of grime in the developing tray. Kept
+// subtle - a few flecks, not a scratched-up mess.
+function applyFilmDamage(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.save();
+
+  const speckleCount = 10 + Math.floor(Math.random() * 12);
+  for (let i = 0; i < speckleCount; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const r = 0.3 + Math.random() * 1.1;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle =
+      Math.random() < 0.7
+        ? `rgba(255, 255, 255, ${0.12 + Math.random() * 0.2})`
+        : `rgba(15, 15, 15, ${0.08 + Math.random() * 0.15})`;
+    ctx.fill();
+  }
+
+  const streakCount = 1 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < streakCount; i++) {
+    const length = h * (0.3 + Math.random() * 0.6);
+    const y0 = Math.random() * (h - length);
+    const x = Math.random() * w;
+    const jitter = () => (Math.random() - 0.5) * 6;
+    ctx.beginPath();
+    ctx.moveTo(x + jitter(), y0);
+    ctx.lineTo(x + jitter(), y0 + length);
+    ctx.lineWidth = 0.4 + Math.random() * 0.6;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 + Math.random() * 0.08})`;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -412,11 +476,12 @@ function CameraBack({ name, onClose }: { name: string; onClose: () => void }) {
     // mirror on the live preview looks "normal"). Un-mirror it here so
     // the saved shot isn't flipped - text in the background reads
     // correctly, matching how the world actually looks.
-    ctx.filter = MONO_FILTER;
     ctx.translate(w, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, w, h);
-    ctx.filter = "none";
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    applyMonoFilter(ctx, w, h);
+    applyFilmDamage(ctx, w, h);
     setShots((prev) => [...prev, canvas.toDataURL("image/png")]);
     setFlash(true);
     setTimeout(() => setFlash(false), 250);
