@@ -12,29 +12,48 @@ const CONFIG = {
   // Colors must start with #
   gradientColors: ["#4F46E5", "#8B5CF6", "#06B6D4"],
 
+  // Your name (or nickname) as a plain string. Shows on the badge and sets
+  // the initials in the avatar circle.
   name: "Your Name",
 
+  // One short sentence, shown under "Fun fact" on the badge. Keep it to
+  // a single line - long text will wrap and may get cramped.
   funFact: "I own 7 cats.",
 
+  // true if you're running/deploying this from a cloud VM, false if it's
+  // just running on your own laptop. Only changes the "My Laptop 💻" vs
+  // "Alibaba Cloud ☁️" text on the badge - purely cosmetic.
   isOnCloud: false,
 
-  // Lets students flip the card and take a photo with their front camera.
-  // Turn off if the device/browser running this has no camera, or you'd
-  // rather ship the badge without it.
+  // true/false. Lets students flip the card and take a photo with their
+  // front camera. Turn off if the device/browser running this has no
+  // camera, or you'd rather ship the badge without it.
   enablePhotoBooth: true,
 
+  // The photo booth's look, baked into every shot you take. Only matters
+  // if enablePhotoBooth is true above. One of these exact strings:
+  //   "vintage"  - black & white film, light leaks, dust and scratches
+  //   "modern"   - sharp and punchy, medium-high contrast
+  //   "polaroid" - soft focus, warm and faded, like an instant camera
+  photoBoothMode: "polaroid" as CameraMode,
+
+  // The movie/game/show/anime shown in the poster frame on the badge.
   favorite: {
-    // one of: "movie" | "game" | "tv show" | "anime"
+    // Which word appears in "My favorite ___ is..." on the badge. One of
+    // these exact strings: "movie" | "game" | "tv show" | "anime"
     category: "movie",
+    // The title, shown as plain text under the poster.
     title: "Interstellar",
-    // swap in a real poster image URL (or a local file like ./posters/mine.jpg)
-    // Go to Google -> Search Movie title -> Right click poster, then
-    // choose "Copy Image Location" or "Copy Image URL" -> Paste it in here!
+    // A direct image URL (or a local file like ./posters/mine.jpg) for the
+    // poster/cover art. Go to Google -> search the title -> right-click
+    // the poster -> "Copy Image Address" -> paste it in here.
     posterUrl:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSeX3l7pPix7HgNUcwpFG2Ws3omIqA9URTCWVh6ia-XD4_2yollk1RkIgP2XWYTycl6eSkC6pAnpOxrU2rMZoptSDnvPFcAzKDLsfSVLd0&s=10",
   },
 };
 
+// The three photo booth looks - see CONFIG.photoBoothMode below.
+type CameraMode = "vintage" | "modern" | "polaroid";
 const SCCC_URL = "https://sccc.sa";
 
 const SPONSORS = [
@@ -184,7 +203,11 @@ const MONO_MIDPOINT = 0.46; // <0.5 biases the steep region toward shadows
 const MONO_GRAIN = 5; // +/- levels of fine per-pixel grain
 const MONO_FILTER = "grayscale(1) contrast(1.1) brightness(1.05)";
 
-function sigmoidalContrast(x: number, contrast: number, midpoint: number): number {
+function sigmoidalContrast(
+  x: number,
+  contrast: number,
+  midpoint: number,
+): number {
   const sig = (v: number) => 1 / (1 + Math.exp(-contrast * (v - midpoint)));
   return (sig(x) - sig(0)) / (sig(1) - sig(0));
 }
@@ -202,10 +225,13 @@ function applyMonoFilter(ctx: CanvasRenderingContext2D, w: number, h: number) {
     const g = data[i + 1];
     const b = data[i + 2];
     const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-    const toned = sigmoidalContrast(luminance, MONO_CONTRAST, MONO_MIDPOINT) * 255;
+    const toned =
+      sigmoidalContrast(luminance, MONO_CONTRAST, MONO_MIDPOINT) * 255;
     // Sum of 3 uniforms approximates a gaussian, so the grain reads as fine
     // and tight rather than a blotchy uniform-noise speckle.
-    const grain = ((Math.random() + Math.random() + Math.random() - 1.5) / 1.5) * MONO_GRAIN;
+    const grain =
+      ((Math.random() + Math.random() + Math.random() - 1.5) / 1.5) *
+      MONO_GRAIN;
     const gray = Math.min(255, Math.max(0, toned + grain));
     data[i] = data[i + 1] = data[i + 2] = gray;
   }
@@ -241,6 +267,127 @@ function applyLightLeak(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillRect(0, 0, w, h);
 
   ctx.restore();
+}
+
+// The raw front-camera frame comes in mirrored (that's why the CSS mirror
+// on the live preview looks "normal") - un-mirror it the same way on every
+// draw so saved shots read correctly and, for the multi-sample capture
+// below, line up before averaging.
+function drawMirroredFrame(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  w: number,
+  h: number,
+) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, w, h);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// A cheap, cross-browser soft-focus blur: shrink the frame, then scale it
+// back up - the resampling is the blur, no reliance on
+// CanvasRenderingContext2D.filter, which iOS Safari doesn't apply.
+//
+// Shrinking (or growing back) in one big jump can make some engines fall
+// back to a cheaper resize filter, which reads as blocky/pixelated rather
+// than smoothly blurred. Stepping down by half each time, and back up by
+// double each time, keeps every single resize within a range that gets
+// proper interpolation.
+function resizeCanvas(
+  source: HTMLCanvasElement,
+  targetW: number,
+  targetH: number,
+) {
+  let currentW = source.width;
+  let currentH = source.height;
+  let current: HTMLCanvasElement = source;
+
+  while (currentW !== targetW || currentH !== targetH) {
+    const shrinking = targetW < currentW;
+    const nextW = shrinking
+      ? Math.max(targetW, Math.round(currentW / 2))
+      : Math.min(targetW, currentW * 2);
+    const nextH = shrinking
+      ? Math.max(targetH, Math.round(currentH / 2))
+      : Math.min(targetH, currentH * 2);
+
+    const step = document.createElement("canvas");
+    step.width = nextW;
+    step.height = nextH;
+    const stepCtx = step.getContext("2d");
+    if (!stepCtx) return current;
+    stepCtx.imageSmoothingEnabled = true;
+    stepCtx.imageSmoothingQuality = "high";
+    stepCtx.drawImage(current, 0, 0, nextW, nextH);
+
+    current = step;
+    currentW = nextW;
+    currentH = nextH;
+  }
+
+  return current;
+}
+
+function drawSoftFocusFrame(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  w: number,
+  h: number,
+  softness = 2.2,
+) {
+  const full = document.createElement("canvas");
+  full.width = w;
+  full.height = h;
+  const fullCtx = full.getContext("2d");
+  if (!fullCtx) return;
+  drawMirroredFrame(fullCtx, video, w, h);
+
+  const sw = Math.max(1, Math.round(w / softness));
+  const sh = Math.max(1, Math.round(h / softness));
+  const shrunk = resizeCanvas(full, sw, sh);
+  const blurred = resizeCanvas(shrunk, w, h);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(blurred, 0, 0, w, h);
+}
+
+const SHUTTER_DURATION_MS = 1000 / 15; // simulate a 1/15s shutter
+const SHUTTER_SAMPLES = 6;
+
+// A slow 1/15s shutter blurs whatever moves during the exposure - hand
+// shake, a blink, a laugh - while a still subject stays sharp. A single
+// video frame can't show that, so sample the live feed several times across
+// that window and average the pixels, the same way a real long exposure
+// blends motion into one frame.
+async function captureWithShutterBlur(
+  video: HTMLVideoElement,
+  w: number,
+  h: number,
+): Promise<ImageData> {
+  const sampleCanvas = document.createElement("canvas");
+  sampleCanvas.width = w;
+  sampleCanvas.height = h;
+  const sampleCtx = sampleCanvas.getContext("2d");
+  if (!sampleCtx) throw new Error("2D canvas context unavailable");
+
+  const acc = new Float32Array(w * h * 4);
+  const interval = SHUTTER_DURATION_MS / (SHUTTER_SAMPLES - 1);
+  for (let i = 0; i < SHUTTER_SAMPLES; i++) {
+    drawMirroredFrame(sampleCtx, video, w, h);
+    const frame = sampleCtx.getImageData(0, 0, w, h).data;
+    for (let p = 0; p < frame.length; p++) acc[p] += frame[p];
+    if (i < SHUTTER_SAMPLES - 1) {
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+  }
+
+  const out = new Uint8ClampedArray(acc.length);
+  for (let p = 0; p < acc.length; p++) out[p] = acc[p] / SHUTTER_SAMPLES;
+  return new ImageData(out, w, h);
 }
 
 // A light, random pass of dust speckles and thin scratch streaks, like a
@@ -279,6 +426,103 @@ function applyFilmDamage(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
   ctx.restore();
 }
+
+function applyVignette(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  strength: number,
+) {
+  ctx.save();
+  const gradient = ctx.createRadialGradient(
+    w / 2,
+    h / 2,
+    Math.min(w, h) * 0.3,
+    w / 2,
+    h / 2,
+    Math.max(w, h) * 0.75,
+  );
+  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${strength})`);
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+const MODERN_CONTRAST = 2.4;
+const MODERN_MIDPOINT = 0.5;
+const MODERN_SATURATION = 1.2;
+const MODERN_VIGNETTE = 0.1;
+
+// "Modern" is captured as a single sharp frame (fast shutter, no motion
+// blur) with a punchier medium-high contrast grade and a saturation lift -
+// the kind of baked-in edit a phone camera applies by default, not a raw,
+// unedited frame.
+function applyModernGrade(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+    for (let c = 0; c < 3; c++) {
+      const saturated = gray + (data[i + c] - gray) * MODERN_SATURATION;
+      const toned =
+        sigmoidalContrast(saturated / 255, MODERN_CONTRAST, MODERN_MIDPOINT) *
+        255;
+      data[i + c] = Math.min(255, Math.max(0, toned));
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  applyVignette(ctx, w, h, MODERN_VIGNETTE);
+}
+
+const POLAROID_CONTRAST = 1.6;
+const POLAROID_MIDPOINT = 0.52;
+const POLAROID_FLOOR = 0.06; // lifted blacks - milky shadows, never true black
+const POLAROID_CEILING = 0.9; // capped whites - hazy highlights, never a clean white
+const POLAROID_VIGNETTE = 0.22;
+
+// A warm color balance and a faded, low-contrast curve with a lifted floor
+// and capped ceiling - instant film. Paired with the soft-focus draw and a
+// stronger vignette for that plastic-lens instant-camera feel.
+function applyPolaroidGrade(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+) {
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const data = imageData.data;
+  const range = POLAROID_CEILING - POLAROID_FLOOR;
+  for (let i = 0; i < data.length; i += 4) {
+    const warm = [
+      data[i] * 1.08 + 6,
+      data[i + 1] * 1.0 + 2,
+      data[i + 2] * 0.88,
+    ];
+    for (let c = 0; c < 3; c++) {
+      const toned = sigmoidalContrast(
+        warm[c] / 255,
+        POLAROID_CONTRAST,
+        POLAROID_MIDPOINT,
+      );
+      data[i + c] = Math.min(
+        255,
+        Math.max(0, (POLAROID_FLOOR + toned * range) * 255),
+      );
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  applyVignette(ctx, w, h, POLAROID_VIGNETTE);
+}
+
+// Live-preview hints only - the real grade is computed pixel-by-pixel on
+// capture (see applyMonoFilter / applyModernGrade / applyPolaroidGrade), so
+// these don't need to match exactly.
+const MODE_PREVIEW_FILTER: Record<CameraMode, string> = {
+  vintage: MONO_FILTER,
+  modern: "contrast(1.12) saturate(1.15)",
+  polaroid: "contrast(0.92) saturate(1.05) sepia(0.15) brightness(1.05)",
+};
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -443,6 +687,8 @@ function CameraBack({ name, onClose }: { name: string; onClose: () => void }) {
   const [shots, setShots] = useState<string[]>([]);
   const [stripPhoto, setStripPhoto] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const mode = CONFIG.photoBoothMode;
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -508,30 +754,47 @@ function CameraBack({ name, onClose }: { name: string; onClose: () => void }) {
     };
   }, [shots]);
 
-  function handleCapture() {
+  async function handleCapture() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || !cameraReady || shots.length >= SHOT_COUNT) return;
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    // The raw front-camera frame comes in mirrored (that's why the CSS
-    // mirror on the live preview looks "normal"). Un-mirror it here so
-    // the saved shot isn't flipped - text in the background reads
-    // correctly, matching how the world actually looks.
-    ctx.translate(w, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, w, h);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    applyMonoFilter(ctx, w, h);
-    applyLightLeak(ctx, w, h);
-    applyFilmDamage(ctx, w, h);
-    setShots((prev) => [...prev, canvas.toDataURL("image/png")]);
-    setFlash(true);
-    setTimeout(() => setFlash(false), 250);
+    if (
+      !video ||
+      !canvas ||
+      !cameraReady ||
+      isCapturing ||
+      shots.length >= SHOT_COUNT
+    )
+      return;
+    setIsCapturing(true);
+    try {
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      if (mode === "vintage") {
+        const blurred = await captureWithShutterBlur(video, w, h);
+        ctx.putImageData(blurred, 0, 0);
+        applyMonoFilter(ctx, w, h);
+        applyLightLeak(ctx, w, h);
+        applyFilmDamage(ctx, w, h);
+      } else if (mode === "modern") {
+        drawMirroredFrame(ctx, video, w, h);
+        applyModernGrade(ctx, w, h);
+      } else {
+        drawSoftFocusFrame(ctx, video, w, h);
+        applyPolaroidGrade(ctx, w, h);
+        applyLightLeak(ctx, w, h);
+      }
+
+      setShots((prev) => [...prev, canvas.toDataURL("image/png")]);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 250);
+    } finally {
+      setIsCapturing(false);
+    }
   }
 
   function handleRetake() {
@@ -582,7 +845,7 @@ function CameraBack({ name, onClose }: { name: string; onClose: () => void }) {
           ref={videoRef}
           className="camera-video"
           style={{
-            filter: MONO_FILTER,
+            filter: MODE_PREVIEW_FILTER[mode],
             display: !cameraError && cameraReady ? "block" : "none",
           }}
           autoPlay
@@ -620,7 +883,7 @@ function CameraBack({ name, onClose }: { name: string; onClose: () => void }) {
           <button
             type="button"
             className="shutter-btn"
-            disabled={!cameraReady}
+            disabled={!cameraReady || isCapturing}
             onClick={handleCapture}
             aria-label="Take photo"
           />
