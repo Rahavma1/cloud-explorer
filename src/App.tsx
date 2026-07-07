@@ -167,14 +167,27 @@ function slugify(name: string) {
 }
 
 const SHOT_COUNT = 3;
-// Full desaturation - any leftover color (from partial desaturation) reads
-// as a cast, usually blue/cool from indoor lighting, and makes skin tones
-// look off. A gamma lift brightens shadows/midtones without blowing out
-// highlights, which is how film's toe actually behaves (lifted, not
-// crushed) - a flat contrast stretch was making shadows read as too dark.
-const MONO_GAMMA = 0.85;
-const MONO_CONTRAST = 1.05;
-const MONO_FILTER = `grayscale(1) contrast(${MONO_CONTRAST}) brightness(1.18)`;
+// Full desaturation - any leftover color reads as a cast (usually blue/cool
+// from indoor lighting) and makes skin tones look off.
+//
+// Modeled after Ilford Delta 400: ~10 stops of range with mild, soft overall
+// contrast, a toe that's sharper than the shoulder (shadows compress toward
+// black relatively quickly, highlights get a long gentle roll-off that
+// resists clipping), and very fine, tight T-grain. A flat gamma+linear
+// contrast pass can't express "sharp toe, soft shoulder" - both ends move
+// the same way. A sigmoidal S-curve with the midpoint biased toward shadows
+// gives that asymmetry for free: the steep part of the curve sits low
+// (sharper toe), the flat tail sits in the highlights (soft shoulder), and
+// neither end hard-clips.
+const MONO_CONTRAST = 3.2; // sigmoid steepness - Delta 400 is mild, not punchy
+const MONO_MIDPOINT = 0.46; // <0.5 biases the steep region toward shadows
+const MONO_GRAIN = 5; // +/- levels of fine per-pixel grain
+const MONO_FILTER = "grayscale(1) contrast(1.1) brightness(1.05)";
+
+function sigmoidalContrast(x: number, contrast: number, midpoint: number): number {
+  const sig = (v: number) => 1 / (1 + Math.exp(-contrast * (v - midpoint)));
+  return (sig(x) - sig(0)) / (sig(1) - sig(0));
+}
 
 // iOS Safari doesn't apply CanvasRenderingContext2D.filter, so drawImage()
 // there silently ignores it and captures come out in color while the live
@@ -188,13 +201,46 @@ function applyMonoFilter(ctx: CanvasRenderingContext2D, w: number, h: number) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    let gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    gray = 255 * Math.pow(gray / 255, MONO_GAMMA);
-    gray = (gray - 128) * MONO_CONTRAST + 128;
-    gray = Math.min(255, Math.max(0, gray));
+    const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const toned = sigmoidalContrast(luminance, MONO_CONTRAST, MONO_MIDPOINT) * 255;
+    // Sum of 3 uniforms approximates a gaussian, so the grain reads as fine
+    // and tight rather than a blotchy uniform-noise speckle.
+    const grain = ((Math.random() + Math.random() + Math.random() - 1.5) / 1.5) * MONO_GRAIN;
+    const gray = Math.min(255, Math.max(0, toned + grain));
     data[i] = data[i + 1] = data[i + 2] = gray;
   }
   ctx.putImageData(imageData, 0, 0);
+}
+
+// A faint glow bleeding in from a random corner/edge, like stray light that
+// snuck past the film canister seal. On B&W stock a leak just overexposes
+// that patch of emulsion - no color - so this stays a plain white "lighten"
+// blend, keeping the shot fully neutral. Kept subtle: low opacity, soft
+// falloff, one leak per shot.
+function applyLightLeak(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.save();
+
+  const corners = [
+    [0, 0],
+    [w, 0],
+    [0, h],
+    [w, h],
+  ];
+  const [cx, cy] = corners[Math.floor(Math.random() * corners.length)];
+  const maxDim = Math.max(w, h);
+  const radius = maxDim * (0.45 + Math.random() * 0.35);
+  const peakAlpha = 0.1 + Math.random() * 0.12;
+
+  const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  gradient.addColorStop(0, `rgba(255, 255, 255, ${peakAlpha})`);
+  gradient.addColorStop(0.6, `rgba(255, 255, 255, ${peakAlpha * 0.35})`);
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+  ctx.globalCompositeOperation = "lighten";
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.restore();
 }
 
 // A light, random pass of dust speckles and thin scratch streaks, like a
@@ -481,6 +527,7 @@ function CameraBack({ name, onClose }: { name: string; onClose: () => void }) {
     ctx.drawImage(video, 0, 0, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     applyMonoFilter(ctx, w, h);
+    applyLightLeak(ctx, w, h);
     applyFilmDamage(ctx, w, h);
     setShots((prev) => [...prev, canvas.toDataURL("image/png")]);
     setFlash(true);
