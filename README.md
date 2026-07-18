@@ -30,6 +30,20 @@ anymore - browsers block camera access on plain `http://`. This repo
 already includes a `Dockerfile` and `Caddyfile` that get you a real,
 trusted HTTPS certificate for free, with no domain purchase needed.
 
+The image is built and pushed to **Docker Hub** (not built on the VM) -
+this keeps a single built artifact that both the VM and, later, a
+Kubernetes cluster can pull.
+
+**On your own machine (with Docker Desktop):**
+
+1. Sign in to Docker Hub in Docker Desktop (top-right → Sign in). The
+   `docker` CLI it ships reuses that login - no `docker login` needed.
+2. Build and push:
+   ```bash
+   docker build -t <your-dockerhub-username>/cloud-explorer .
+   docker push <your-dockerhub-username>/cloud-explorer
+   ```
+
 **On your VM:**
 
 1. Install Docker if it isn't already there.
@@ -37,22 +51,18 @@ trusted HTTPS certificate for free, with no domain purchase needed.
    Cloud console → your instance → Security Groups). Both are needed -
    port 80 is used briefly to prove you own the domain, port 443 serves
    the site.
-3. Copy this project to the VM (`git clone`, `scp`, etc.) and build the
-   image:
-   ```bash
-   docker build -t cloud-explorer .
-   ```
-4. Run it, using your VM's public IP with dots replaced by dashes,
+3. Run it, using your VM's public IP with dots replaced by dashes,
    suffixed with `.sslip.io` (this is a free service that maps that
-   hostname straight to your IP - no DNS setup required):
+   hostname straight to your IP - no DNS setup required). `--pull always`
+   makes Docker fetch the image from Docker Hub before starting it:
    ```bash
-   docker run -d -p 80:80 -p 443:443 \
+   docker run -d --pull always -p 80:80 -p 443:443 \
      -e SITE_ADDRESS=<your-ip-with-dashes>.sslip.io \
-     --name cloud-explorer cloud-explorer
+     --name cloud-explorer <your-dockerhub-username>/cloud-explorer
    ```
    Example: if your VM's IP is `47.253.1.100`, use
    `SITE_ADDRESS=47-253-1-100.sslip.io`.
-5. Visit `https://<your-ip-with-dashes>.sslip.io` in your browser.
+4. Visit `https://<your-ip-with-dashes>.sslip.io` in your browser.
    You should see a trusted padlock - the photo booth will work.
 
 Caddy (the web server inside the container) automatically issues and
@@ -62,12 +72,21 @@ configure.
 ### Updating after a code change
 
 ```bash
-docker stop cloud-explorer && docker rm cloud-explorer
-docker build -t cloud-explorer .
-docker run -d -p 80:80 -p 443:443 \
+# on your machine
+docker build -t <your-dockerhub-username>/cloud-explorer .
+docker push <your-dockerhub-username>/cloud-explorer
+
+# on the VM
+docker rm -f cloud-explorer 2>/dev/null
+docker run -d --pull always -p 80:80 -p 443:443 \
   -e SITE_ADDRESS=<your-ip-with-dashes>.sslip.io \
-  --name cloud-explorer cloud-explorer
+  --name cloud-explorer <your-dockerhub-username>/cloud-explorer
 ```
+
+`--pull always` makes `docker run` fetch the latest image itself, so there's no separate `docker pull` step; `docker rm -f` stops and removes the old container in one command instead of two.
+
+Or just push to `main` on GitHub - the included Actions workflow
+(`.github/workflows/deploy.yml`) does all of the above for you.
 
 ### Troubleshooting
 
