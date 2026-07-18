@@ -5,8 +5,8 @@ flip it over, take 3 photos with your front camera, and save a vintage
 photo strip. Everything stays on your own device - no photo or camera
 data is ever sent anywhere.
 
-Make it yours by editing the `CONFIG` object at the top of `src/App.tsx`
-(your name, fun fact, favorite movie/game, colors).
+Make it yours by editing the `CONFIG` object in `src/config.ts` (your name,
+fun fact, favorite movie/game, colors).
 
 ## 1. Run it locally
 

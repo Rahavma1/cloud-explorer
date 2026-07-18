@@ -10,7 +10,21 @@
       rel="stylesheet"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Start of My Cloud Journey</title>
+    <title>__OG_TITLE__</title>
+
+    <!-- og:image is filled in at request time by Caddy's `templates`
+         directive (see Caddyfile) - the domain isn't known until
+         `docker run`, so it can't be baked in at build time. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="__OG_TITLE__" />
+    <meta property="og:description" content="__OG_DESCRIPTION__" />
+    <meta
+      property="og:image"
+      content='https://{{ placeholder "http.request.host" }}/og-image.png'
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>

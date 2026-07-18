@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Generated at build time by scripts/generate-og-image.ts - see vite.config.ts
+public/og-image.png
 !README.md
 # Editor directories and files
 .vscode/*
