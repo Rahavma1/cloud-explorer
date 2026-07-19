@@ -8,8 +8,7 @@ name: Deploy to VM
 #        SSH_USER             SSH username (e.g. root, ubuntu)
 #        SSH_KEY              private key that can SSH into the VM
 #        SITE_ADDRESS         e.g. 47-253-1-100.sslip.io (see README)
-#   2. The VM only needs Docker installed - it no longer needs this repo cloned
-#      or Node.js, since it just pulls the image built in CI.
+#   2. The Alibaba VM only needs Docker installed
 #
 # Fill in the blanks below (see curriculum Day 2 Session 2).
 
@@ -30,6 +29,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/cloud-explorer:latest
 
   deploy:
