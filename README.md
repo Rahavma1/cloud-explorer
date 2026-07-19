@@ -40,7 +40,7 @@ Kubernetes cluster can pull.
    `docker` CLI it ships reuses that login - no `docker login` needed.
 2. Build and push:
    ```bash
-   docker build -t <your-dockerhub-username>/cloud-explorer .
+   docker build --platform linux/amd64 -t <your-dockerhub-username>/cloud-explorer .
    docker push <your-dockerhub-username>/cloud-explorer
    ```
 
@@ -73,7 +73,7 @@ configure.
 
 ```bash
 # on your machine
-docker build -t <your-dockerhub-username>/cloud-explorer .
+docker build --platform linux/amd64 -t <your-dockerhub-username>/cloud-explorer .
 docker push <your-dockerhub-username>/cloud-explorer
 
 # on the VM
