@@ -39,13 +39,19 @@ const TECH_STACK = [
   { Icon: SiLinux, color: "#ffffff" },
 ];
 
-const SPONSOR_LOGOS = [LOGOS.majal, LOGOS.sccc, LOGOS.azm];
+const SPONSOR_LOGOS = [LOGOS.majal, LOGOS.azm, LOGOS.sccc];
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const WIDTH = 1200;
 const HEIGHT = 630;
 const FONT_FAMILY = "Space Grotesk";
+
+// Render at 2x and downsample to the final size - text, logo images, and
+// rounded-rect edges all come out anti-aliased and crisp instead of showing
+// jagged/blurry edges when the 1200x630 card gets displayed larger than its
+// native size (browser tabs, social previews, etc).
+const SCALE = 2;
 
 // Alpine (the Docker build stage) ships with no fonts at all, so relying on
 // a system font would silently render blank/tofu glyphs there. Bundling and
@@ -126,8 +132,11 @@ function fitFontSize(
 export async function generateOgImage() {
   ensureFont();
 
-  const canvas = createCanvas(WIDTH, HEIGHT);
+  const canvas = createCanvas(WIDTH * SCALE, HEIGHT * SCALE);
   const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   // Background gradient - same colors as the live badge's aurora background.
   const colors =
@@ -256,7 +265,16 @@ export async function generateOgImage() {
   ctx.font = `600 20px "${FONT_FAMILY}"`;
   ctx.fillText("Learning Cloud Computing", textX + 56, stampY + stampH / 2 + 7);
 
+  // Downsample the 2x render back to the declared 1200x630 (matches the
+  // og:image:width/height meta tags) - this is what actually turns the
+  // supersampled edges into anti-aliasing instead of just shipping a bigger file.
+  const finalCanvas = createCanvas(WIDTH, HEIGHT);
+  const finalCtx = finalCanvas.getContext("2d");
+  finalCtx.imageSmoothingEnabled = true;
+  finalCtx.imageSmoothingQuality = "high";
+  finalCtx.drawImage(canvas, 0, 0, WIDTH, HEIGHT);
+
   const outPath = path.join(__dirname, "../public/og-image.png");
-  writeFileSync(outPath, canvas.toBuffer("image/png"));
+  writeFileSync(outPath, finalCanvas.toBuffer("image/png"));
   return outPath;
 }

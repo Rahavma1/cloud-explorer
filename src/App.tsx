@@ -14,7 +14,7 @@ const SPONSORS = [
     url: "https://www.linkedin.com/company/majal-initiative",
   },
   {
-    eyebrow: "Sponsored by",
+    eyebrow: "Sponsor",
     name: "Saudi AZM",
     src: LOGOS.azm,
     url: "https://azm.com",
@@ -927,7 +927,7 @@ export default function App() {
         <h1>My Cloud Explorer Badge</h1>
         <p>
           Deployed by me, running on{" "}
-          {CONFIG.isOnCloud ? "Alibaba Cloud! ☁️" : "My Laptop!  💻"}.
+          {CONFIG.isOnCloud ? "Alibaba Cloud! ☁️" : "my Laptop!  💻"}
         </p>
       </div>
 
