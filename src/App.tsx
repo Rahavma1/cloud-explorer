@@ -87,11 +87,10 @@ function BadgeFront({
       <div className="badge-eyebrow">Cloud Explorer</div>
 
       <div className="avatar">{initialsOf(name)}</div>
-      <h2 className="badge-name">{name}</h2>
-      <p className="badge-role">Majal x AZM &middot; Cloud Computing Week</p>
-
+<h2 className="badge-name">{name}</h2>
+<p className="badge-role">Majal x AZM &middot; Cloud Computing Week</p>
       <div className="fun-fact">
-        <span className="label">Fun fact</span>
+        <span className="label">Fun Fact</span>
         {funFact}
       </div>
 
