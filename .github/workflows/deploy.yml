@@ -30,7 +30,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cloud-explorer:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cloud-week:latest
 
   deploy:
     needs: build-and-push # <-- this job must wait for which job?
@@ -46,5 +46,5 @@ jobs:
             set -e
             docker rm -f cloud-week || true
             docker run -d --pull always -p 80:80 -p 443:443 \
-              -e SITE_ADDRESS=${{ secrets. }} \
+              -e SITE_ADDRESS=${{ secrets.SITE_ADDRESS }} \
               --name cloud-week ${{ secrets.DOCKERHUB_USERNAME }}/cloud-week:latest
