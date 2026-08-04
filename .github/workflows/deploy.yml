@@ -10,7 +10,7 @@ name: Deploy to VM
 #        SITE_ADDRESS         e.g. 47-253-1-100.sslip.io (see README)
 #   2. The Alibaba VM only needs Docker installed
 #
-# Fill in the blanks below (see curriculum Day 2 Session 2).
+# Fill in the blanks below (see curriculum Day 2 Session 2)
 
 on:
   push:
