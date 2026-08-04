@@ -30,7 +30,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cloud-week:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cloud-explorer:latest
 
   deploy:
     needs: build-and-push # <-- this job must wait for which job?
