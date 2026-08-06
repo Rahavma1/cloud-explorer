@@ -87,10 +87,11 @@ function BadgeFront({
       <div className="badge-eyebrow">Cloud Explorer</div>
 
       <div className="avatar">{initialsOf(name)}</div>
-<h2 className="badge-name">{name}</h2>
-<p className="badge-role">Majal x AZM &middot; Cloud Computing Week</p>
+      <h2 className="badge-name">{name}</h2>
+      <p className="badge-role">Majal x AZM &middot; Cloud Computing Week</p>
+
       <div className="fun-fact">
-        <span className="label">Fun Fact</span>
+        <span className="label">Fun fact</span>
         {funFact}
       </div>
 
@@ -911,6 +912,13 @@ function FlipBadge({
   );
 }
 
+// Set by Caddy's `templates` directive from the POD_NAME env var (see
+// index.html) - only present when running as a Pod, so this is empty for
+// `docker run` or a plain `npm run dev`.
+const podName = document
+  .querySelector('meta[name="pod-name"]')
+  ?.getAttribute("content");
+
 export default function App() {
   return (
     <>
@@ -928,6 +936,7 @@ export default function App() {
           Deployed by me, running on{" "}
           {CONFIG.isOnCloud ? "Alibaba Cloud! ☁️" : "my Laptop!  💻"}
         </p>
+        {podName && <p className="pod-name">served by pod: {podName}</p>}
       </div>
 
       <div className="badge-wrap">
